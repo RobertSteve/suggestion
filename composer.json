@@ -1,0 +1,21 @@
+{
+    "name": "talently/affinity",
+    "description": "Paquete para laravel para consumir el recurso externo de afinidad",
+    "type": "library",
+    "require": {
+        "php": "^7.4",
+        "guzzlehttp/guzzle": "dev-master",
+        "illuminate/support": "^6.0 || ^9.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Talently\\Affinity\\": "src/"
+        }
+    },
+    "authors": [
+        {
+            "name": "Robert Steve, Paredes Quispe"
+        }
+    ],
+    "minimum-stability": "dev"
+}
