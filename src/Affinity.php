@@ -1,6 +1,6 @@
 <?php
 
-namespace src;
+namespace Affinity;
 
 use GuzzleHttp\Client;
 
