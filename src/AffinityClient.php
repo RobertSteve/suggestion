@@ -14,16 +14,17 @@ class AffinityClient
         $this->client = new Client();
     }
 
-    public function get()
+    public function get($trsId, $workOfferId)
     {
-        $response = $this->client->post(config('affinity.url'), [
+        $url = config('affinity.url.' . config('affinity.environment'));
+        $response = $this->client->post($url, [
             'headers' => [
                 'Content-Type' => 'application/json',
-                'x-api-key' => '95fhfp7RFs1b0qrD0OHhUw9zs2lNUYf9Nxvm9XT6'
+                'x-api-key' => config('affinity.api_key')
             ],
             'json' => [
-                'work_offer_ids' => '795',
-                'trs_id' => '2000000000',
+                'work_offer_ids' => $workOfferId,
+                'trs_id' => $trsId,
             ]
         ]);
 
