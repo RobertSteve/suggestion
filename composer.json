@@ -1,21 +1,32 @@
 {
     "name": "talently/affinity",
-    "description": "Paquete para laravel para consumir el recurso externo de afinidad",
+    "description": "Paquete para consumir la API de Afinidad.",
     "type": "library",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Robert Steve, Paredes Quispe",
+            "email": "robert.paredes@outlook.com"
+        }
+    ],
     "require": {
         "php": "^7.2|^8.1",
         "illuminate/support": "^6.0|^7.0|^8.0|^9.0",
-        "guzzlehttp/guzzle": "^7.0"
+        "guzzlehttp/guzzle": "^6.3|^7.0"
     },
     "autoload": {
         "psr-4": {
-            "Talently\\Affinity\\": "src/"
+            "Affinity\\": "src/"
         }
     },
-    "authors": [
-        {
-            "name": "Robert Steve, Paredes Quispe"
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Affinity\\Providers\\AffinityServiceProvider"
+            ],
+            "aliases": {
+                "Affinity": "Affinity\\Facades\\Affinity"
+            }
         }
-    ],
-    "minimum-stability": "dev"
+    }
 }
