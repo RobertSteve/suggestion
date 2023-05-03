@@ -11,24 +11,35 @@ class AffinityClient
 
     public function __construct()
     {
-        $this->client = new Client();
-    }
-
-    public function get($trsId, $workOfferId)
-    {
-        $url = config('affinity.url.' . config('affinity.environment'));
-        $response = $this->client->post($url, [
+        $this->client = new Client([
+            'base_uri' => config('affinity.url.' . config('affinity.environment')),
             'headers' => [
                 'Content-Type' => 'application/json',
                 'x-api-key' => config('affinity.api_key')
             ],
+        ]);
+    }
+
+    public function get(int $trsId, array $workOfferIds)
+    {
+
+        $workOfferIdString = implode(',', $workOfferIds);
+
+        $response = $this->client->post('', [
             'json' => [
-                'work_offer_ids' => $workOfferId,
+                'work_offer_ids' => $workOfferIdString,
                 'trs_id' => $trsId,
             ]
         ]);
 
-        return json_decode($response->getBody(), true);
+        $result = json_decode($response->getBody(), true);
+
+        return [
+            'uuid' => $result['uuid'],
+            'data' => collect($result['results'])
+                ->groupBy('id_offer'),
+        ];
+
     }
 
 }
