@@ -1,5 +1,9 @@
 <?php
 
+namespace Affinity\Providers;
+
+use Affinity\AffinityClient;
+use Affinity\Facades\Affinity;
 use Illuminate\Support\ServiceProvider;
 
 class AffinityServiceProvider extends ServiceProvider
@@ -8,7 +12,7 @@ class AffinityServiceProvider extends ServiceProvider
     public function register()
     {
         $this->app->singleton(Affinity::class, function ($app) {
-            return new Affinity();
+            return new AffinityClient();
         });
         $this->mergeConfigFrom(__DIR__.'/../../config/affinity.php', 'affinity');
     }
