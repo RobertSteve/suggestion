@@ -22,10 +22,10 @@
     "extra": {
         "laravel": {
             "providers": [
-                "SuggestionServiceProvider"
+                "Suggestion\\Providers\\SuggestionServiceProvider"
             ],
             "aliases": {
-                "Suggestion": "Suggestion"
+                "Suggestion": "Suggestion\\Facades\\Suggestion"
             }
         }
     }
