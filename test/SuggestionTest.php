@@ -2,7 +2,7 @@
 
 namespace test;
 
-class AffinityTest
+class SuggestionTest
 {
 
 }

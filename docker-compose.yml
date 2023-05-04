@@ -5,7 +5,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: affinity
+    container_name: suggestion
     volumes:
       - ./:/var/www
     ports:

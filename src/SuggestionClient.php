@@ -1,10 +1,10 @@
 <?php
 
-namespace Affinity;
+namespace Suggestion;
 
 use GuzzleHttp\Client;
 
-class AffinityClient
+class SuggestionClient
 {
 
     protected $client;
@@ -12,10 +12,10 @@ class AffinityClient
     public function __construct()
     {
        $this->client = new Client([
-            'base_uri' => config('affinity.url.' . config('affinity.environment')),
+            'base_uri' => config('suggestion.url.' . config('suggestion.environment')),
             'headers' => [
                 'Content-Type' => 'application/json',
-                'x-api-key' => config('affinity.api_key')
+                'x-api-key' => config('suggestion.api_key')
             ],
         ]);
     }
@@ -38,10 +38,10 @@ class AffinityClient
 
         $results = collect($result['results']);
 
-        return collect($workOfferIds)->map(function($workOfferId) use ($uuid, $results) {
-            return [
-                'uuid' => $uuid,
-                'data' => [
+        return [
+            'uuid' => $uuid,
+            'data' => collect($workOfferIds)->map(function($workOfferId) use ($results) {
+                return [
                     'work_offer_id' => $workOfferId,
                     'suggestions' => $results
                         ->where('id_offer', $workOfferId)
@@ -52,9 +52,9 @@ class AffinityClient
                                 'rank' => $suggestion['rank'],
                             ];
                         }),
-                ],
-            ];
-        });
+                ];
+            }),
+        ];
 
     }
 

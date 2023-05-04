@@ -1,15 +1,15 @@
 <?php
 
-namespace Affinity\Facades;
+namespace Suggestion\Facades;
 
 use Illuminate\Support\Facades\Facade;
 
-class Affinity extends Facade
+class Suggestion extends Facade
 {
 
     protected static function getFacadeAccessor()
     {
-        return 'Affinity\AffinityClient';
+        return 'Suggestion\SuggestionClient';
     }
 
 }

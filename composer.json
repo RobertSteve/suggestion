@@ -1,6 +1,6 @@
 {
-    "name": "talently/affinity",
-    "description": "Paquete para consumir la API de Afinidad.",
+    "name": "talently/suggestion",
+    "description": "Paquete para consumir la API de sugeridos.",
     "type": "library",
     "license": "MIT",
     "authors": [
@@ -16,16 +16,16 @@
     },
     "autoload": {
         "psr-4": {
-            "Affinity\\": "src/"
+            "Sugestion\\": "src/"
         }
     },
     "extra": {
         "laravel": {
             "providers": [
-                "Affinity\\Providers\\AffinityServiceProvider"
+                "SuggestionServiceProvider"
             ],
             "aliases": {
-                "Affinity": "Affinity\\Facades\\Affinity"
+                "Suggestion": "Suggestion"
             }
         }
     }
