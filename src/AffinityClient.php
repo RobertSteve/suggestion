@@ -11,7 +11,7 @@ class AffinityClient
 
     public function __construct()
     {
-        $this->client = new Client([
+       $this->client = new Client([
             'base_uri' => config('affinity.url.' . config('affinity.environment')),
             'headers' => [
                 'Content-Type' => 'application/json',
@@ -34,11 +34,27 @@ class AffinityClient
 
         $result = json_decode($response->getBody(), true);
 
-        return [
-            'uuid' => $result['uuid'],
-            'data' => collect($result['results'])
-                ->groupBy('id_offer'),
-        ];
+        $uuid = $result['uuid'];
+
+        $results = collect($result['results']);
+
+        return collect($workOfferIds)->map(function($workOfferId) use ($uuid, $results) {
+            return [
+                'uuid' => $uuid,
+                'data' => [
+                    'work_offer_id' => $workOfferId,
+                    'suggestions' => $results
+                        ->where('id_offer', $workOfferId)
+                        ->map(function ($suggestion) {
+                            return [
+                                'match_user_id' => $suggestion['match_user_id'],
+                                'affinity' => $suggestion['affinity'],
+                                'rank' => $suggestion['rank'],
+                            ];
+                        }),
+                ],
+            ];
+        });
 
     }
 
