@@ -2,6 +2,8 @@
 
 namespace Suggestion\Providers;
 
+use GuzzleHttp\ClientInterface;
+use Illuminate\Contracts\Config\Repository as Config;
 use Suggestion\SuggestionClient;
 use Suggestion\Facades\Suggestion;
 use Illuminate\Support\ServiceProvider;
@@ -12,7 +14,10 @@ class SuggestionServiceProvider extends ServiceProvider
     public function register()
     {
         $this->app->singleton(Suggestion::class, function ($app) {
-            return new SuggestionClient();
+            $client = $app->make(ClientInterface::class);
+            $config = $app->make(Config::class);
+
+            return new SuggestionClient($client, $config);
         });
         $this->mergeConfigFrom(__DIR__.'/../../config/suggestion.php', 'suggestion');
     }
