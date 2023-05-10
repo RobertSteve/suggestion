@@ -1,5 +1,6 @@
 {
     "name": "talently/suggestion",
+    "version": "1.0.0",
     "description": "Paquete para consumir la API de sugeridos.",
     "type": "library",
     "license": "MIT",
