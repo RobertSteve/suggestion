@@ -11,33 +11,27 @@ use Illuminate\Support\ServiceProvider;
 class SuggestionServiceProvider extends ServiceProvider
 {
 
-    public function register()
+    public function register(): void
     {
         $this->app->singleton(Suggestion::class, function ($app) {
-            $client = $app->make(ClientInterface::class);
-            $config = $app->make(Config::class);
-
-            return new SuggestionClient($client, $config);
+            return new SuggestionClient(
+                $app->make(ClientInterface::class),
+                $app->make(Config::class)
+            );
         });
-        $this->mergeConfigFrom(__DIR__.'/../../config/suggestion.php', 'suggestion');
+        $this->mergeConfigFrom(
+            __DIR__.'/../../config/suggestion.php',
+            'suggestion'
+        );
     }
 
-    public function boot()
+    public function boot(): void
     {
         if ($this->app->runningInConsole()) {
             $this->publishes([
-                __DIR__.'/../../config/suggestion.php' => $this->getConfigPath(),
+                __DIR__.'/../../config/suggestion.php' => $this->app->configPath('suggestion.php'),
             ], 'config');
         }
-    }
-
-    protected function getConfigPath()
-    {
-        if (function_exists('config_path')) {
-            return config_path('suggestion.php');
-        }
-
-        return $this->app->basePath('config/suggestion.php');
     }
 
 }
