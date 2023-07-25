@@ -5,8 +5,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: suggestion
+    container_name: suggestion_app
     volumes:
       - ./:/var/www
     ports:
-      - "9000:9000"
+      - "1000:1000"

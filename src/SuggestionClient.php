@@ -4,8 +4,16 @@ namespace Suggestion;
 
 use GuzzleHttp\Client;
 use GuzzleHttp\ClientInterface;
+use GuzzleHttp\Exception\ClientException;
+use GuzzleHttp\Exception\ConnectException;
+use GuzzleHttp\Exception\GuzzleException;
+use GuzzleHttp\Exception\ServerException;
 use Illuminate\Contracts\Config\Repository as Config;
 use Illuminate\Support\Collection;
+use Psr\Log\LoggerInterface;
+use Psr\Log\NullLogger;
+use Suggestion\Exceptions\SuggestionErrorCodes;
+use Suggestion\Exceptions\SuggestionServiceException;
 
 class SuggestionClient
 {
@@ -15,7 +23,18 @@ class SuggestionClient
      */
     protected $client;
 
-    public function __construct(ClientInterface $client = null, Config $config = null)
+    protected $logger;
+
+    const ACCEPT = 'aceptar';
+
+    const DISCARD = 'descartar';
+
+    /**
+     * @param ClientInterface|null $client
+     * @param Config|null $config
+     * @param LoggerInterface|null $logger
+     */
+    public function __construct(ClientInterface $client = null, Config $config = null, LoggerInterface $logger = null)
     {
         $this->client = $client ?? new Client([
             'base_uri' => $config->get('suggestion.url.' . $config->get('suggestion.environment')),
@@ -24,61 +43,261 @@ class SuggestionClient
                 'x-api-key' => $config->get('suggestion.api_key'),
             ],
         ]);
+        $this->logger = $logger ?? new NullLogger();
     }
 
-    public function get(int $trsId, int $workOfferId): array
+    /**
+     * @param int $businessUserId
+     * @param int $workOfferId
+     * @return array|null
+     * @throws GuzzleException
+     * @throws SuggestionServiceException
+     */
+    public function get(int $businessUserId, int $workOfferId): ?array
+    {
+        try {
+            $response = $this->client->request('POST', 'affinity-ml-hire', [
+                'json' => [
+                    'business_user_id' => $businessUserId,
+                    'work_offer_id' => $workOfferId,
+                ]
+            ]);
+
+            if ($response->getStatusCode() === 200) {
+                $result = json_decode($response->getBody(), true);
+
+                return [
+                    'uuid' => $result['result']['uuid'],
+                    'data' => $this->processData($result['result']['results']),
+                ];
+            }
+
+            $this->logger->error('El estado de código es diferente a 200. Código: ' . $response->getStatusCode());
+            throw new SuggestionServiceException('Se produjo un error al procesar tu solicitud. Por favor, intenta nuevamente más tarde.', SuggestionErrorCodes::GENERIC_ERROR);
+        } catch (ClientException $exception) {
+            $this->handleClientException($exception);
+        } catch (ConnectException $exception) {
+            $this->handleException(
+                $exception,
+                SuggestionErrorCodes::CONNECTION_ERROR,
+                'Se produjo un error al procesar tu solicitud. Por favor, intenta nuevamente más tarde.'
+            );
+        }  catch (ServerException  $exception) {
+            $this->handleException(
+                $exception,
+                SuggestionErrorCodes::SERVER_ERROR,
+                'Se produjo un error al procesar tu solicitud. Por favor, intenta nuevamente más tarde.'
+            );
+        } catch (\Exception $exception) {
+            $this->handleException(
+                $exception,
+                SuggestionErrorCodes::UNEXPECTED_ERROR,
+                'Se produjo un error al procesar tu solicitud. Por favor, intenta nuevamente más tarde.'
+            );
+        }
+    }
+
+
+    /**
+     * @param string $uuid
+     * @param int $businessUserId
+     * @param int $matchUserId
+     * @param int $workOfferId
+     * @return true[]
+     * @throws GuzzleException
+     * @throws SuggestionServiceException
+     */
+    public function interested(string $uuid, int $businessUserId, int $matchUserId, int $workOfferId): array
+    {
+        try {
+            return $this->changeInterest(self::ACCEPT, $businessUserId, $uuid, $matchUserId, $workOfferId);
+        } catch (ClientException $exception) {
+            $this->handleClientException($exception);
+        } catch (\Exception $exception) {
+            $this->handleException(
+                $exception,
+                SuggestionErrorCodes::UNEXPECTED_ERROR,
+                'Se produjo un error al procesar tu solicitud. Por favor, intenta nuevamente más tarde.'
+            );
+        }
+    }
+
+
+    /**
+     * @param string $uuid
+     * @param int $businessUserId
+     * @param int $matchUserId
+     * @param int $workOfferId
+     * @return true[]
+     * @throws GuzzleException
+     * @throws SuggestionServiceException
+     */
+    public function noInterested(string $uuid, int $businessUserId, int $matchUserId, int $workOfferId): array
+    {
+        try {
+            return $this->changeInterest(self::DISCARD, $businessUserId, $uuid, $matchUserId, $workOfferId);
+        } catch (ClientException $exception) {
+            $this->handleClientException($exception);
+        } catch (\Exception $exception) {
+            $this->handleException(
+                $exception,
+                SuggestionErrorCodes::UNEXPECTED_ERROR,
+                'Se produjo un error al procesar tu solicitud. Por favor, intenta nuevamente más tarde.'
+            );
+        }
+    }
+
+
+    /**
+     * @param string $action
+     * @param int $businessUserId
+     * @param string $uuid
+     * @param int $matchUserId
+     * @param int $workOfferId
+     * @return true[]
+     * @throws GuzzleException
+     * @throws SuggestionServiceException
+     */
+    private function changeInterest(string $action, int $businessUserId, string $uuid, int $matchUserId, int $workOfferId): array
+    {
+        try {
+            $response = $this->client->request('POST', 'affinity-ml-hire/change', [
+                'json' => [
+                    'action' => $action,
+                    'business_user_id' => $businessUserId,
+                    'match_user_id' => $matchUserId,
+                    'uuid' => $uuid,
+                    'work_offer_id' => $workOfferId,
+                ]
+            ]);
+
+            if ($response->getStatusCode() === 200) {
+
+                return [
+                    'result' => true,
+                ];
+            }
+
+            $this->logger->error('El estado de código es diferente a 200. Código: ' . $response->getStatusCode());
+            throw new SuggestionServiceException('Se produjo un error al procesar tu solicitud. Por favor, intenta nuevamente más tarde.', 'SUGGESTION_000001');
+        } catch (ClientException $exception) {
+            $this->handleClientException($exception);
+        } catch (ConnectException $exception) {
+            $this->handleException(
+                $exception,
+                SuggestionErrorCodes::CONNECTION_ERROR,
+                'Se produjo un error al procesar tu solicitud. Por favor, intenta nuevamente más tarde.'
+            );
+        }  catch (ServerException  $exception) {
+            $this->handleException(
+                $exception,
+                SuggestionErrorCodes::SERVER_ERROR,
+                'Se produjo un error al procesar tu solicitud. Por favor, intenta nuevamente más tarde.'
+            );
+        } catch (\Exception $exception) {
+            $this->handleException(
+                $exception,
+                SuggestionErrorCodes::UNEXPECTED_ERROR,
+                'Se produjo un error al procesar tu solicitud. Por favor, intenta nuevamente más tarde.'
+            );
+        }
+    }
+
+    /**
+     * @param int $matchUserId
+     * @param string $uuid
+     * @return true[]
+     * @throws GuzzleException
+     * @throws SuggestionServiceException
+     */
+    public function filterInterested(int $matchUserId, string $uuid): array
+    {
+        try {
+            return $this->filterChangeInterest(4, $matchUserId, $uuid);
+        } catch (ClientException $exception) {
+            $this->handleClientException($exception);
+        } catch (\Exception $exception) {
+            $this->handleException(
+                $exception,
+                SuggestionErrorCodes::UNEXPECTED_ERROR,
+                'Se produjo un error al procesar tu solicitud. Por favor, intenta nuevamente más tarde.'
+            );
+        }
+    }
+
+    /**
+     * @param int $affinityStatusId
+     * @param int $matchUserId
+     * @param string $uuid
+     * @return true[]|void
+     * @throws GuzzleException
+     * @throws SuggestionServiceException
+     */
+    private function filterChangeInterest(int $affinityStatusId, int $matchUserId, string $uuid): array
+    {
+        try {
+            $response = $this->client->request('POST', 'affinity-ml-ai-search/change', [
+                'json' => [
+                    'affinity_status_id' => $affinityStatusId,
+                    'match_user_id' => $matchUserId,
+                    'uuid' => $uuid,
+                ]
+            ]);
+
+            if ($response->getStatusCode() === 200) {
+
+                return [
+                    'result' => true,
+                ];
+            }
+
+            $this->logger->error('El estado de código es diferente a 200. Código: ' . $response->getStatusCode());
+            throw new SuggestionServiceException('Se produjo un error al procesar tu solicitud. Por favor, intenta nuevamente más tarde.', 'SUGGESTION_000001');
+        } catch (ClientException $exception) {
+            $this->handleClientException($exception);
+        } catch (ConnectException $exception) {
+            $this->handleException(
+                $exception,
+                SuggestionErrorCodes::CONNECTION_ERROR,
+                'Se produjo un error al procesar tu solicitud. Por favor, intenta nuevamente más tarde.'
+            );
+        }  catch (ServerException  $exception) {
+            $this->handleException(
+                $exception,
+                SuggestionErrorCodes::SERVER_ERROR,
+                'Se produjo un error al procesar tu solicitud. Por favor, intenta nuevamente más tarde.'
+            );
+        } catch (\Exception $exception) {
+            $this->handleException(
+                $exception,
+                SuggestionErrorCodes::UNEXPECTED_ERROR,
+                'Se produjo un error al procesar tu solicitud. Por favor, intenta nuevamente más tarde.'
+            );
+        }
+    }
+
+    /**
+     * @param array $suggestions
+     * @return array
+     */
+    private function processData(array $suggestions): array
     {
 
-        $response = $this->client->post('affinity-ml', [
-            'json' => [
-                'work_offer_ids' => (string)$workOfferId,
-                'trs_id' => $trsId,
-            ]
-        ]);
-
-        $result = json_decode($response->getBody(), true);
-
         return [
-            'uuid' => $result['uuid'],
-            'data' => $this->processData($result),
+            'suggestions' => $this->processSuggestions(collect($suggestions)),
         ];
     }
 
-    public function interested(string $uuid, int $matchUserId, int $workOfferId): bool
-    {
-        return $this->changeInterest('aceptar', $uuid, $matchUserId, $workOfferId);
-    }
-
-    public function noInterested(string $uuid, int $matchUserId, int $workOfferId): bool
-    {
-        return $this->changeInterest('descartar', $uuid, $matchUserId, $workOfferId);
-    }
-
-    private function changeInterest(string $action, string $uuid, int $matchUserId, int $workOfferId): bool
-    {
-        $response = $this->client->post('affinity-ml/change', [
-            'json' => [
-                'uuid' => $uuid,
-                'match_user_id' => $matchUserId,
-                'work_offer_ids' => $workOfferId,
-                'action' => $action,
-            ]
-        ]);
-
-        return $response->getStatusCode() === 200;
-    }
-
-    private function processData(array $result): array
-    {
-        return [
-            'suggestions' => $this->processSuggestions(collect($result['results'])),
-        ];
-    }
-
+    /**
+     * @param Collection $results
+     * @return array
+     */
     private function processSuggestions(Collection $results): array
     {
+
         return $results
             ->map(function ($suggestion) {
+
                 return [
                     'match_user_id' => $suggestion['match_user_id'],
                     'affinity' => $suggestion['affinity'],
@@ -86,6 +305,63 @@ class SuggestionClient
                 ];
             })
             ->toArray();
+    }
+
+    /**
+     * @param \Exception $exception
+     * @param string $errorCode
+     * @param string $errorMessage
+     * @return void
+     * @throws SuggestionServiceException
+     */
+    private function handleException(\Exception $exception, string $errorCode, string $errorMessage): void
+    {
+        $this->logger->error('SUGGESTION: Código: ' . $errorCode . ' Error al conectar con la API externa: ' . $exception->getMessage());
+        throw new SuggestionServiceException($errorMessage, $errorCode);
+    }
+
+    /**
+     * @param ClientException $exception
+     * @return void
+     * @throws SuggestionServiceException
+     */
+    private function handleClientException(ClientException $exception): void
+    {
+        $response = $exception->getResponse();
+        $statusCode = $response->getStatusCode();
+
+        switch ($statusCode) {
+            case 400:
+                $this->handleException(
+                    $exception,
+                    SuggestionErrorCodes::BAD_REQUEST,
+                    'La solicitud es inválida. Por favor, revisa tus datos.'
+                );
+            case 401:
+                $this->handleException(
+                    $exception,
+                    SuggestionErrorCodes::UNAUTHORIZED,
+                    'Autenticación incorrecta. Por favor, revisa tus credenciales.'
+                );
+            case 403:
+                $this->handleException(
+                    $exception,
+                    SuggestionErrorCodes::FORBIDDEN,
+                    'No tienes permiso para acceder a este recurso.'
+                );
+            case 404:
+                $this->handleException(
+                    $exception,
+                    SuggestionErrorCodes::NOT_FOUND,
+                    'El recurso solicitado no se encontró.'
+                );
+            default:
+                $this->handleException(
+                    $exception,
+                    SuggestionErrorCodes::SERVER_EXCEPTION,
+                    'Se produjo un error al procesar tu solicitud. Por favor, intenta nuevamente más tarde.'
+                );
+        }
     }
 
 }
